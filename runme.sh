@@ -4,11 +4,12 @@ set -xe
 
 HOSTS="localhost"
 #WORKLOAD="unet3d"
-#MODELS="resnet50 cosmoflow unet3d"
-MODELS="resnet50 cosmoflow"
+MODELS="resnet50 cosmoflow unet3d"
+#MODELS="resnet50 cosmoflow"
 GPU_TYPE="h100"
 GPU_NUM=8 
-DATASET_PATH=/data
+#DATASET_PATH=/data
+DATASET_PATH=/MLPlocal
 
 #Auto-file parameters
 #CLIENT_NUM=1
@@ -25,26 +26,28 @@ DATETIME=`date +'%Y%m%d%H%M%S'`
 for WORKLOAD in $MODELS
 do
 
-echo "Generating configurations"
+echo "Step 1: Generating configurations"
 ./benchmark.sh datasize --workload ${WORKLOAD} --accelerator-type ${GPU_TYPE} --num-accelerators ${GPU_NUM} --num-client-hosts ${CLIENT_NUM} --client-host-memory-in-gb ${HOST_MEM_GB}
 
 TRAIN_FILE_NUM=$( ./benchmark.sh datasize --workload ${WORKLOAD} --accelerator-type ${GPU_TYPE} --num-accelerators ${GPU_NUM} --num-client-hosts ${CLIENT_NUM} --client-host-memory-in-gb ${HOST_MEM_GB} | grep dataset.num_files_train |sed 's/.*dataset.num_files_train=\([^ ]*\).*/\1/') 
+
 sleep 3
  
-echo "Generating data files"
+echo "Step 2: Generating data files"
+
 if [[ -d /${DATASET_PATH}/${WORKLOAD}-${GPU_TYPE}-${TRAIN_FILE_NUM} ]]; then
     echo "Dataset folder /${DATASET_PATH}/${WORKLOAD}-${GPU_TYPE}-${TRAIN_FILE_NUM} already exist, re-using it"
 else
     echo "No exsiting dataset found, building it under /${DATASET_PATH}/${WORKLOAD}-${GPU_TYPE}-${TRAIN_FILE_NUM}"
     sleep 3
-    ./benchmark.sh datagen --workload ${WORKLOAD} --accelerator-type ${GPU_TYPE} --num-parallel ${WRITER} --param dataset.num_files_train=${TRAIN_FILE_NUM} --param dataset.data_folder=/${DATASET_PATH}/${WORKLOAD}-${GPU_TYPE}-${TRAIN_FILE_NUM}
+    ./benchmark.sh datagen -s ${HOSTS} --workload ${WORKLOAD} --accelerator-type ${GPU_TYPE} --num-parallel ${WRITER} --param dataset.num_files_train=${TRAIN_FILE_NUM} --param dataset.data_folder=/${DATASET_PATH}/${WORKLOAD}-${GPU_TYPE}-${TRAIN_FILE_NUM}
 fi
 
-echo "Running the test"
-sleep 3
+echo "Step 3: Running the test"
 
-for i in {1..5}; do
-
+for i in {1..5}
+do
+    #clear cache
     sync; echo 3 > /proc/sys/vm/drop_caches
     sleep 30
 
@@ -55,21 +58,23 @@ for i in {1..5}; do
         exit 1
     else
     echo "Run $run_name completed successfully."
+    fi
 
-AU=$( grep "train_au_meet_expectation"  /results/${WORKLOAD}-${DATETIME}/run${i}/summary.json |awk '{print $2}'| cut -d\" -f2)
-if [[  "$AU" != "success" ]]
-then
-	echo "AU fail, please check log"
-else
+    AU=$( grep "train_au_meet_expectation"  /results/${WORKLOAD}-${DATETIME}/run${i}/summary.json |awk '{print $2}'| cut -d\" -f2)
+    if [[  "$AU" != "success" ]]
+    then
+    	echo "AU fail, please check log"
+    else
 	
-	echo "Generating the report"
+	echo "Step 4: Generating the report"
 	sleep 3
 	./benchmark.sh reportgen --results-dir /results/${WORKLOAD}-${DATETIME}/run${i} 
-fi
-done 
-
+    fi
 
 done
+
+done
+
 
 exit 0
 
