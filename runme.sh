@@ -69,8 +69,8 @@ done
 #    then
 #    	echo "AU fail, please check log"
 #    else
-	
-done
+
+done 
 
 for WORKLOAD in $MODELS
 do
@@ -80,6 +80,7 @@ do
     ./benchmark.sh reportgen --results-dir /${RESULTS_DIR}/${WORKLOAD}-${DATETIME} 
 #    fi
 
+done
 
 
 
