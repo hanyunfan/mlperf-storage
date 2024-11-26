@@ -5,8 +5,8 @@ set -xe
 HOSTS="localhost"
 #WORKLOAD="unet3d"
 #MODELS="resnet50 cosmoflow unet3d"
-MODELS="unet3d"
-#MODELS="resnet50 cosmoflow"
+#MODELS="unet3d"
+MODELS="resnet50 cosmoflow"
 GPU_TYPE="h100"
 GPU_NUM=8 
 #DATASET_PATH=/data
@@ -57,27 +57,30 @@ do
     ./benchmark.sh run -s ${HOSTS} --workload ${WORKLOAD} --accelerator-type ${GPU_TYPE} --num-accelerators ${GPU_NUM} --results-dir /${RESULTS_DIR}/${WORKLOAD}-${DATETIME}/run${i} --param dataset.num_files_train=${TRAIN_FILE_NUM} --param dataset.data_folder=/${DATASET_PATH}/${WORKLOAD}-${GPU_TYPE}-${TRAIN_FILE_NUM} -p reader.read_threads=${READER}
 
     if [ $? -ne 0 ]; then
-        echo "Run $run_name failed. Check dlio.log for details."
+        echo "Run $i of 5 of $MODELS  failed. Check dlio.log for details."
         exit 1
     else
-    echo "Run $run_name completed successfully."
+    echo "Run $i of 5 of $MODELS completed successfully."
     fi
+done
 
-    AU=$( grep "train_au_meet_expectation"  /${RESULTS_DIR}/${WORKLOAD}-${DATETIME}/run${i}/summary.json |awk '{print $2}'| cut -d\" -f2)
-    if [[  "$AU" != "success" ]]
-    then
-    	echo "AU fail, please check log"
-    else
+#    AU=$( grep "train_au_meet_expectation"  /${RESULTS_DIR}/${WORKLOAD}-${DATETIME}/run${i}/summary.json |awk '{print $2}'| cut -d\" -f2)
+#    if [[  "$AU" != "success" ]]
+#    then
+#    	echo "AU fail, please check log"
+#    else
 	
-	echo "Step 4: Generating the report"
-	sleep 3
-	#./benchmark.sh reportgen --results-dir /${RESULTS_DIR}/${WORKLOAD}-${DATETIME}/run${i} 
-	./benchmark.sh reportgen --results-dir /${RESULTS_DIR}/${WORKLOAD}-${DATETIME} 
-    fi
-
 done
 
-done
+for WORKLOAD in $MODELS
+do
+    echo "Step 4: Generating the report"
+    sleep 3
+    #./benchmark.sh reportgen --results-dir /${RESULTS_DIR}/${WORKLOAD}-${DATETIME}/run${i} 
+    ./benchmark.sh reportgen --results-dir /${RESULTS_DIR}/${WORKLOAD}-${DATETIME} 
+#    fi
+
+
 
 
 exit 0
